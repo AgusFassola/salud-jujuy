@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Salud Jujuy - Turnos y Profesionales</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- Librería de Supabase para conectar a la Base de Datos -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <!-- Barra Superior -->
+  <header class="navbar">
+    <div class="logo-area">
+      <h1>SALUD JUJUY</h1>
+      <span class="badge-ciudad">San Salvador</span>
+      <select id="selector-localidad" class="select-localidad" title="Expansión provincial">
+        <option value="ssj" selected>San Salvador de Jujuy</option>
+        <option value="palpala" disabled>Palpalá (Próximamente)</option>
+        <option value="perico" disabled>Perico (Próximamente)</option>
+        <option value="tilcara" disabled>Tilcara / Quebrada (Próximamente)</option>
+      </select>
+    </div>
+    <div class="auth-buttons">
+      <button id="btn-modo-paciente" class="btn-nav active" onclick="cambiarVista('paciente')">Soy Paciente</button>
+      <button id="btn-modo-profesional" class="btn-nav" onclick="cambiarVista('profesional')">Ingreso Profesional</button>
+    </div>
+  </header>
+
+  <!-- VISTA 1: BUSCADOR DE PACIENTES -->
+  <main id="vista-paciente" class="container">
+    
+    <!-- Panel de Filtros -->
+    <aside class="sidebar">
+      <h2>Filtrar Búsqueda</h2>
+      
+      <div class="form-group">
+        <label>Especialidad</label>
+        <select id="filtro-especialidad">
+          <option value="">Todas las especialidades</option>
+          <option value="Kinesiología" selected>Kinesiología</option>
+          <option value="Médico Clínico">Médico Clínico</option>
+          <option value="Traumatología">Traumatología</option>
+          <option value="Dentista">Dentista</option>
+          <option value="Nutrición">Nutrición</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Obra Social / Cobertura</label>
+        <select id="filtro-obra">
+          <option value="">Todas / Particular</option>
+          <option value="ISJ" selected>ISJ (Instituto de Seguros de Jujuy)</option>
+          <option value="OSDE">OSDE</option>
+          <option value="PAMI">PAMI</option>
+          <option value="Swiss Medical">Swiss Medical</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Zona o Barrio</label>
+        <select id="filtro-barrio">
+          <option value="">Toda San Salvador</option>
+          <option value="Gorriti" selected>Gorriti (Zona Plaza de los Inmigrantes)</option>
+          <option value="Centro">Centro (Plaza Belgrano)</option>
+          <option value="Ciudad de Nieva">Ciudad de Nieva</option>
+          <option value="Los Perales">Los Perales</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Lugar de Atención</label>
+        <select id="filtro-lugar">
+          <option value="">Hospital, Clínica o Consultorio</option>
+          <option value="Consultorio Privado">Consultorio Privado</option>
+          <option value="Clínica">Clínica / Sanatorio</option>
+          <option value="Hospital">Hospital Público</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Horario de Atención</label>
+        <div class="turno-toggle">
+          <button type="button" id="btn-manana" class="toggle-btn active" onclick="setHorario('manana')">Mañana</button>
+          <button type="button" id="btn-tarde" class="toggle-btn" onclick="setHorario('tarde')">Tarde</button>
+          <button type="button" id="btn-todos-horarios" class="toggle-btn" onclick="setHorario('todos')">Todos</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Costo Máx. Particular: <strong id="precio-valor">$25.000</strong></label>
+        <input type="range" id="filtro-precio" min="5000" max="30000" step="1000" value="25000">
+      </div>
+
+      <button class="btn-limpiar" onclick="limpiarFiltros()">Limpiar Filtros</button>
+    </aside>
+
+    <!-- Lista de Resultados -->
+    <section class="resultados">
+      <div class="resultados-header">
+        <h2 id="contador-resultados">Cargando profesionales desde la base de datos...</h2>
+      </div>
+      <div id="lista-profesionales" class="cards-grid">
+        <!-- Aquí se cargan las tarjetas automáticamente -->
+      </div>
+    </section>
+  </main>
+
+  <!-- VISTA 2: REGISTRO / ALTA DE PROFESIONALES (CONECTADO A BD) -->
+  <main id="vista-profesional" class="container-single hidden">
+    <div class="card-registro">
+      <h2>Portal de Profesionales - Jujuy</h2>
+      <p class="subtitle">Registrate para aparecer en el directorio y gestionar tus turnos. (Se guarda en vivo en la Base de Datos)</p>
+      
+      <form id="form-profesional" class="grid-form">
+        <div class="form-group">
+          <label>Nombre y Apellido (con Título)</label>
+          <input type="text" id="reg-nombre" placeholder="Ej: Lic. Ana Gutiérrez" required>
+        </div>
+        <div class="form-group">
+          <label>Matrícula Profesional (MP Jujuy)</label>
+          <input type="text" id="reg-matricula" placeholder="Ej: MP-4521" required>
+        </div>
+        <div class="form-group">
+          <label>Especialidad</label>
+          <select id="reg-especialidad" required>
+            <option value="Kinesiología">Kinesiología</option>
+            <option value="Médico Clínico">Médico Clínico</option>
+            <option value="Traumatología">Traumatología</option>
+            <option value="Dentista">Dentista</option>
+            <option value="Nutrición">Nutrición</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tipo de Establecimiento</label>
+          <select id="reg-lugar-tipo" required>
+            <option value="Consultorio Privado">Consultorio Privado</option>
+            <option value="Clínica">Clínica</option>
+            <option value="Hospital">Hospital</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Nombre del Consultorio / Clínica</label>
+          <input type="text" id="reg-lugar-nombre" placeholder="Ej: Consultorios del Parque" required>
+        </div>
+        <div class="form-group">
+          <label>Barrio</label>
+          <select id="reg-barrio" required>
+            <option value="Gorriti">Gorriti</option>
+            <option value="Centro">Centro</option>
+            <option value="Ciudad de Nieva">Ciudad de Nieva</option>
+            <option value="Los Perales">Los Perales</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Punto de Referencia Cercano</label>
+          <input type="text" id="reg-referencia" placeholder="Ej: A 1 cuadra de Plaza de los Inmigrantes" required>
+        </div>
+        <div class="form-group">
+          <label>Costo Consulta Particular ($)</label>
+          <input type="number" id="reg-precio" value="15000" required>
+        </div>
+        <div class="form-group full-width">
+          <label>Obras Sociales que acepta</label>
+          <div class="checkbox-group">
+            <label><input type="checkbox" value="ISJ" checked> ISJ</label>
+            <label><input type="checkbox" value="OSDE"> OSDE</label>
+            <label><input type="checkbox" value="PAMI"> PAMI</label>
+            <label><input type="checkbox" value="Particular" checked> Particular</label>
+          </div>
+        </div>
+        <button type="submit" class="btn-submit full-width">Publicar mi Perfil Profesional</button>
+      </form>
+    </div>
+  </main>
+
+  <!-- Modal de Confirmación de Turno -->
+  <div id="modal-turno" class="modal hidden">
+    <div class="modal-content">
+      <h3>Confirmar Reserva de Turno</h3>
+      <p id="modal-info"></p>
+      <input type="text" id="paciente-nombre" placeholder="Tu Nombre y Apellido" class="input-modal">
+      <input type="text" id="paciente-dni" placeholder="Tu DNI / N° Afiliado ISJ" class="input-modal">
+      <div class="modal-actions">
+        <button onclick="cerrarModal()" class="btn-cancelar">Cancelar</button>
+        <button onclick="confirmarReserva()" class="btn-confirmar">Confirmar Turno</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
