@@ -178,18 +178,44 @@ async function registrarProfesional(e) {
 }
 
 // Modal de turnos
+let turnoActual = {};
+
 function abrirModal(nombre, esp, hora) {
-  document.getElementById('modal-info').textContent = `Turno con ${nombre} (${esp}) a las ${hora} hs.`;
+  turnoActual = { nombre, esp, hora };
+  document.getElementById('modal-info').innerHTML = `
+    <strong>Profesional:</strong> ${nombre}<br>
+    <strong>Especialidad:</strong> ${esp}<br>
+    <strong>Horario seleccionado:</strong> ${hora} hs
+  `;
   document.getElementById('modal-turno').classList.remove('hidden');
 }
 
 function cerrarModal() {
   document.getElementById('modal-turno').classList.add('hidden');
+  document.getElementById('paciente-nombre').value = '';
+  document.getElementById('paciente-dni').value = '';
 }
 
-function confirmarReserva() {
-  const pac = document.getElementById('paciente-nombre').value;
-  if (!pac) return alert('Por favor ingresá tu nombre.');
-  alert(`¡Turno confirmado para ${pac}! Se envió el comprobante con los datos de cobertura.`);
-  cerrarModal();
+async function confirmarReserva() {
+  const pacNombre = document.getElementById('paciente-nombre').value.trim();
+  const pacDni = document.getElementById('paciente-dni').value.trim();
+
+  if (!pacNombre || !pacDni) {
+    return alert('Por favor completá tu nombre y DNI / N° de afiliado ISJ.');
+  }
+
+  const { error } = await db.from('turnos_reservados').insert([{
+    profesional_nombre: turnoActual.nombre,
+    especialidad: turnoActual.esp,
+    horario: turnoActual.hora,
+    paciente_nombre: pacNombre,
+    paciente_dni: pacDni
+  }]);
+
+  if (error) {
+    alert('Hubo un error al registrar el turno: ' + error.message);
+  } else {
+    alert(`✅ ¡Turno confirmado y guardado en sistema!\n\nPaciente: ${pacNombre}\nProfesional: ${turnoActual.nombre}\nHorario: ${turnoActual.hora} hs`);
+    cerrarModal();
+  }
 }
