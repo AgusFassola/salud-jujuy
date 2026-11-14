@@ -45,6 +45,14 @@ async function cargarProfesionales() {
   aplicarFiltros();
 }
 
+function formatearFechaCalendario(fechaISO) {
+  if (!fechaISO) return 'A confirmar';
+  const [anio, mes, dia] = fechaISO.split('-');
+  const fechaObj = new Date(Number(anio), Number(mes) - 1, Number(dia));
+  const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  return `${dias[fechaObj.getDay()]} ${dia}/${mes}/${anio}`;
+}
+
 function setHorario(horario) {
   horarioSeleccionado = horario;
   document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
@@ -110,6 +118,14 @@ function renderizarTarjetas(lista) {
           <div class="obras-list">
             ${(pro.obras_sociales || []).map(os => `<span class="obra-tag">${os}</span>`).join('')}
           </div>
+          <div style="margin-top: 0.75rem; display: flex; gap: 0.4rem;">
+            <button type="button" onclick="editarPrecioProfesional(${pro.id}, ${pro.precio})" style="background:#e2e8f0; border:none; padding:0.3rem 0.6rem; border-radius:6px; font-size:0.78rem; cursor:pointer; font-weight:600;">
+                ✏️ Editar 
+            </button>
+            <button type="button" onclick="eliminarProfesional(${pro.id}, '${pro.nombre}')" style="background:#fee2e2; color:#991b1b; border:none; padding:0.3rem 0.6rem; border-radius:6px; font-size:0.78rem; cursor:pointer; font-weight:600;">
+                🗑️ Eliminar
+            </button>
+           </div>
         </div>
 
         <div class="pro-turnos">
@@ -181,8 +197,7 @@ async function registrarProfesional(e) {
     referencia: document.getElementById('reg-referencia').value.trim(),
     obras_sociales: obrasChecked.length ? obrasChecked : ['Particular'],
     precio: Number(document.getElementById('reg-precio').value),
-    fecha_turnos: document.getElementById('reg-fecha').value.trim(),
-    turnos_manana: ['09:00', '10:30'],
+    fecha_turnos: formatearFechaCalendario(document.getElementById('reg-fecha').value),    turnos_manana: ['09:00', '10:30'],
     turnos_tarde: ['17:00']
   };
 
@@ -285,9 +300,56 @@ async function cargarTurnosReservados() {
         <span style="font-size: 0.85rem; color: #475569;">Atiende: <strong>${t.profesional_nombre}</strong> (${t.especialidad})</span><br>
         <span style="font-size: 0.8rem; color: #64748b;">📍 ${t.direccion || 'San Salvador de Jujuy'}</span>
       </div>
-      <span style="background: #10b981; color: white; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: bold; font-size: 0.85rem;">
-        📅 ${t.fecha || 'Sábado 14/11'} • ${t.horario} hs
-      </span>
+      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.4rem;">
+        <span style="background: #10b981; color: white; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: bold; font-size: 0.85rem;">
+            📅 ${t.fecha || 'Sin fecha'} • ${t.horario} hs
+        </span>
+        <div style="display: flex; gap: 0.35rem;">
+            <button type="button" onclick="reprogramarTurno(${t.id}, '${t.horario}')" style="background:#e2e8f0; border:none; padding:0.25rem 0.55rem; border-radius:5px; font-size:0.75rem; cursor:pointer; font-weight:600;">
+            ✏️ Cambiar hora
+            </button>
+            <button type="button" onclick="eliminarTurno(${t.id})" style="background:#fee2e2; color:#991b1b; border:none; padding:0.25rem 0.55rem; border-radius:5px; font-size:0.75rem; cursor:pointer; font-weight:600;">
+            🗑️ Cancelar turno
+            </button>
+        </div>
+      </div>
     </div>
   `).join('');
+}
+
+
+async function eliminarProfesional(id, nombre) {
+  if (!confirm(`¿Desea eliminar a ${nombre} del directorio?`)) return;
+  const { error } = await db.from('profesionales').delete().eq('id', id);
+  if (error) alert('Error al eliminar: ' + error.message);
+  else await cargarProfesionales();
+}
+
+async function editarPrecioProfesional(id, precioActual) {
+  const nuevoPrecio = prompt('Ingresá el nuevo valor de consulta ($):', precioActual);
+  if (!nuevoPrecio || isNaN(nuevoPrecio)) return;
+
+  const nuevaFecha = prompt('Ingresá la nueva fecha de atención (ej: Lunes 16/11):', 'Lunes 16/11');
+  const datosActualizar = { precio: Number(nuevoPrecio) };
+  if (nuevaFecha && nuevaFecha.trim()) datosActualizar.fecha_turnos = nuevaFecha.trim();
+
+  const { error } = await db.from('profesionales').update(datosActualizar).eq('id', id);
+  if (error) alert('Error al actualizar: ' + error.message);
+  else await cargarProfesionales();
+}
+
+async function eliminarTurno(id) {
+  if (!confirm('¿Querés eliminar este turno reservado?')) return;
+  const { error } = await db.from('turnos_reservados').delete().eq('id', id);
+  if (error) alert('Error al cancelar turno: ' + error.message);
+  else await cargarTurnosReservados();
+}
+
+async function reprogramarTurno(id, horaActual) {
+  const nuevaHora = prompt('Ingresá el nuevo horario para este turno (ej: 11:30):', horaActual);
+  if (!nuevaHora || !nuevaHora.trim()) return;
+
+  const { error } = await db.from('turnos_reservados').update({ horario: nuevaHora.trim() }).eq('id', id);
+  if (error) alert('Error al reprogramar: ' + error.message);
+  else await cargarTurnosReservados();
 }
