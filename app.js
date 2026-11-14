@@ -7,18 +7,24 @@ const SUPABASE_ANON_KEY = 'sb_publishable_3Ndq5Da1JEbpI7y7VzupGw_WR_abOHN';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let todosLosProfesionales = [];
-let horarioSeleccionado = 'manana'; // Por defecto mañana como pediste
+let horarioSeleccionado = 'todos'; // Por defecto mañana como pediste
 let turnoSeleccionado = null;
 
 // Cargar datos al iniciar la página
 document.addEventListener('DOMContentLoaded', () => {
   cargarProfesionales();
+  cargarTurnosReservados();
 
   // Escuchar cambios en todos los filtros
   document.getElementById('filtro-especialidad').addEventListener('change', aplicarFiltros);
   document.getElementById('filtro-obra').addEventListener('change', aplicarFiltros);
   document.getElementById('filtro-barrio').addEventListener('change', aplicarFiltros);
   document.getElementById('filtro-lugar').addEventListener('change', aplicarFiltros);
+  document.getElementById('filtro-nombre').addEventListener('input', aplicarFiltros);
+  document.getElementById('activar-precio').addEventListener('change', (e) => {
+  document.getElementById('contenedor-rango-precio').classList.toggle('hidden', !e.target.checked);
+    aplicarFiltros();
+  });
   document.getElementById('filtro-precio').addEventListener('input', (e) => {
     document.getElementById('precio-valor').textContent = `$${Number(e.target.value).toLocaleString('es-AR')}`;
     aplicarFiltros();
@@ -54,19 +60,23 @@ function aplicarFiltros() {
   const barrio = document.getElementById('filtro-barrio').value;
   const lugar = document.getElementById('filtro-lugar').value;
   const precioMax = Number(document.getElementById('filtro-precio').value);
+  const nombreBusqueda = document.getElementById('filtro-nombre').value.trim().toLowerCase();
+  const limitarPrecio = document.getElementById('activar-precio').checked;
 
   const filtrados = todosLosProfesionales.filter(pro => {
     const okEsp = !esp || pro.especialidad === esp;
     const okObra = !obra || (pro.obras_sociales && pro.obras_sociales.includes(obra));
     const okBarrio = !barrio || pro.barrio === barrio;
     const okLugar = !lugar || pro.lugar_tipo === lugar;
-    const okPrecio = pro.precio <= precioMax;
+    //const okPrecio = pro.precio <= precioMax;
+    const okNombre = !nombreBusqueda || pro.nombre.toLowerCase().includes(nombreBusqueda);
+    const okPrecio = !limitarPrecio || pro.precio <= precioMax;
 
     let okHorario = true;
     if (horarioSeleccionado === 'manana') okHorario = pro.turnos_manana && pro.turnos_manana.length > 0;
     if (horarioSeleccionado === 'tarde') okHorario = pro.turnos_tarde && pro.turnos_tarde.length > 0;
 
-    return okEsp && okObra && okBarrio && okLugar && okPrecio && okHorario;
+    return okEsp && okObra && okBarrio && okLugar && okPrecio && okHorario && okNombre;
   });
 
   renderizarTarjetas(filtrados);
@@ -74,7 +84,9 @@ function aplicarFiltros() {
 
 function renderizarTarjetas(lista) {
   const contenedor = document.getElementById('lista-profesionales');
-  document.getElementById('contador-resultados').textContent = `${lista.length} Profesional(es) disponible(s) en San Salvador`;
+  document.getElementById('contador-resultados').textContent = lista.length === 1 
+  ? '1 profesional disponible en San Salvador' 
+  : `${lista.length} profesionales disponibles en San Salvador`;
 
   if (lista.length === 0) {
     contenedor.innerHTML = `<div class="pro-card"><p>No hay profesionales con esa combinación exacta. Probá ampliar el barrio o limpiar filtros.</p></div>`;
@@ -106,13 +118,13 @@ function renderizarTarjetas(lista) {
             <span class="precio-box">$${pro.precio.toLocaleString('es-AR')}</span>
           </div>
           <div class="slots-container">
-            <span class="slots-title">Turnos disponibles (${horarioSeleccionado}):</span>
+            <span class="slots-title">📅 Próximo día: ${pro.fecha_turnos || 'Sábado 14/11'}</span>
             <div class="slots-buttons">
-              ${turnosAMostrar.map(hora => `
-                <button class="btn-slot" onclick="abrirModal('${pro.nombre}', '${pro.especialidad}', '${hora}')">
-                  ${hora} hs
+                ${turnosAMostrar.map(hora => `
+                <button class="btn-slot" onclick="abrirModal('${pro.nombre}', '${pro.especialidad}', '${pro.fecha_turnos || 'Sábado 14/11'}', '${hora}', '${pro.lugar_nombre} - Barrio ${pro.barrio}')">
+                    ${hora} hs
                 </button>
-              `).join('')}
+                `).join('')}
             </div>
           </div>
         </div>
@@ -131,17 +143,25 @@ function limpiarFiltros() {
   setHorario('todos');
 }
 
-// Cambio entre Paciente y Profesional
+// Cambio entre Paciente, Profesional y turnos
 function cambiarVista(vista) {
+  document.getElementById('vista-paciente').classList.add('hidden');
+  document.getElementById('vista-profesional').classList.add('hidden');
+  document.getElementById('vista-turnos').classList.add('hidden');
+
+  document.getElementById('btn-modo-paciente').classList.remove('active');
+  document.getElementById('btn-modo-profesional').classList.remove('active');
+  document.getElementById('btn-modo-turnos').classList.remove('active');
+
   if (vista === 'paciente') {
     document.getElementById('vista-paciente').classList.remove('hidden');
-    document.getElementById('vista-profesional').classList.add('hidden');
     document.getElementById('btn-modo-paciente').classList.add('active');
-    document.getElementById('btn-modo-profesional').classList.remove('active');
+  } else if (vista === 'turnos') {
+    document.getElementById('vista-turnos').classList.remove('hidden');
+    document.getElementById('btn-modo-turnos').classList.add('active');
+    cargarTurnosReservados();
   } else {
-    document.getElementById('vista-paciente').classList.add('hidden');
     document.getElementById('vista-profesional').classList.remove('hidden');
-    document.getElementById('btn-modo-paciente').classList.remove('active');
     document.getElementById('btn-modo-profesional').classList.add('active');
   }
 }
@@ -149,17 +169,19 @@ function cambiarVista(vista) {
 // Registrar nuevo profesional en Supabase en tiempo real
 async function registrarProfesional(e) {
   e.preventDefault();
-  const obrasChecked = Array.from(document.querySelectorAll('.checkbox-group input:checked')).map(cb => cb.value);
+  const feedback = document.getElementById('feedback-profesional');
+  const obrasChecked = Array.from(document.querySelectorAll('.chips-group input:checked')).map(cb => cb.value);
 
   const nuevoPro = {
-    nombre: document.getElementById('reg-nombre').value,
+    nombre: document.getElementById('reg-nombre').value.trim(),
     especialidad: document.getElementById('reg-especialidad').value,
     lugar_tipo: document.getElementById('reg-lugar-tipo').value,
-    lugar_nombre: document.getElementById('reg-lugar-nombre').value,
+    lugar_nombre: document.getElementById('reg-lugar-nombre').value.trim(),
     barrio: document.getElementById('reg-barrio').value,
-    referencia: document.getElementById('reg-referencia').value,
-    obras_sociales: obrasChecked,
+    referencia: document.getElementById('reg-referencia').value.trim(),
+    obras_sociales: obrasChecked.length ? obrasChecked : ['Particular'],
     precio: Number(document.getElementById('reg-precio').value),
+    fecha_turnos: document.getElementById('reg-fecha').value.trim(),
     turnos_manana: ['09:00', '10:30'],
     turnos_tarde: ['17:00']
   };
@@ -167,25 +189,27 @@ async function registrarProfesional(e) {
   const { error } = await db.from('profesionales').insert([nuevoPro]);
 
   if (error) {
-    alert('Error al guardar: ' + error.message);
+    feedback.textContent = '❌ Error al guardar: ' + error.message;
+    feedback.className = 'feedback-box feedback-error';
+    feedback.classList.remove('hidden');
   } else {
-    alert('¡Perfil publicado con éxito en la base de datos! Ya podés verlo en el buscador.');
+    feedback.textContent = `✅ ¡Perfil de ${nuevoPro.nombre} publicado con éxito! Ya podés verlo en el buscador.`;
+    feedback.className = 'feedback-box feedback-success';
+    feedback.classList.remove('hidden');
     document.getElementById('form-profesional').reset();
     await cargarProfesionales();
-    cambiarVista('paciente');
-    limpiarFiltros();
   }
 }
 
 // Modal de turnos
 let turnoActual = {};
 
-function abrirModal(nombre, esp, hora) {
-  turnoActual = { nombre, esp, hora };
+function abrirModal(nombre, esp, fecha, hora, direccion ) {
+  turnoActual = { nombre, esp, fecha, hora, direccion };
   document.getElementById('modal-info').innerHTML = `
-    <strong>Profesional:</strong> ${nombre}<br>
-    <strong>Especialidad:</strong> ${esp}<br>
-    <strong>Horario seleccionado:</strong> ${hora} hs
+    <strong>Profesional:</strong> ${nombre} (${esp})<br>
+    <strong>Día y Hora:</strong> ${fecha} a las <strong>${hora} hs</strong><br>
+    <strong>Dirección:</strong> ${direccion}
   `;
   document.getElementById('modal-turno').classList.remove('hidden');
 }
@@ -194,28 +218,76 @@ function cerrarModal() {
   document.getElementById('modal-turno').classList.add('hidden');
   document.getElementById('paciente-nombre').value = '';
   document.getElementById('paciente-dni').value = '';
+  document.getElementById('paciente-telefono').value = '';
 }
 
 async function confirmarReserva() {
   const pacNombre = document.getElementById('paciente-nombre').value.trim();
   const pacDni = document.getElementById('paciente-dni').value.trim();
+  const pacTel = document.getElementById('paciente-telefono').value.trim();
+  const pacObra = document.getElementById('paciente-obra').value;
 
-  if (!pacNombre || !pacDni) {
-    return alert('Por favor completá tu nombre y DNI / N° de afiliado ISJ.');
+  if (!pacNombre || !pacDni || !pacTel) {
+    return alert('Por favor completá tu nombre, DNI y telefono.');
   }
 
   const { error } = await db.from('turnos_reservados').insert([{
     profesional_nombre: turnoActual.nombre,
     especialidad: turnoActual.esp,
+    fecha: turnoActual.fecha,
     horario: turnoActual.hora,
+    direccion: turnoActual.direccion,
     paciente_nombre: pacNombre,
-    paciente_dni: pacDni
+    paciente_dni: pacDni,
+    paciente_telefono: pacTel,
+    paciente_obra_social: pacObra
   }]);
 
   if (error) {
     alert('Hubo un error al registrar el turno: ' + error.message);
   } else {
-    alert(`✅ ¡Turno confirmado y guardado en sistema!\n\nPaciente: ${pacNombre}\nProfesional: ${turnoActual.nombre}\nHorario: ${turnoActual.hora} hs`);
     cerrarModal();
+    document.getElementById('texto-comprobante').innerHTML = `
+      <strong>Paciente:</strong> ${pacNombre} (${pacObra})<br>
+      <strong>Profesional:</strong> ${turnoActual.nombre} (${turnoActual.esp})<br>
+      <strong>Día y Hora:</strong> ${turnoActual.fecha} — ${turnoActual.hora} hs<br>
+      <strong>Lugar:</strong> ${turnoActual.direccion}
+    `;
+    document.getElementById('banner-confirmacion').classList.remove('hidden');
+    await cargarTurnosReservados();
   }
+}
+
+async function cargarTurnosReservados() {
+  const contenedor = document.getElementById('lista-turnos-bd');
+  if (!contenedor) return;
+
+  const { data, error } = await db
+    .from('turnos_reservados')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    contenedor.innerHTML = `<p>Error al cargar turnos: ${error.message}</p>`;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    contenedor.innerHTML = `<p style="color: #64748b; font-size: 0.9rem;">Aún no hay turnos reservados. Probá reservar uno desde la vista de Paciente.</p>`;
+    return;
+  }
+
+  contenedor.innerHTML = data.map(t => `
+    <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-left: 4px solid #0f766e; padding: 0.85rem 1rem; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+      <div>
+        <strong>Paciente:</strong> ${t.paciente_nombre} (DNI: ${t.paciente_dni} • ${t.paciente_obra_social || 'Particular'})<br>
+        <span style="font-size: 0.85rem; color: #334155;">📞 Tel: ${t.paciente_telefono || 'No informado'}</span><br>
+        <span style="font-size: 0.85rem; color: #475569;">Atiende: <strong>${t.profesional_nombre}</strong> (${t.especialidad})</span><br>
+        <span style="font-size: 0.8rem; color: #64748b;">📍 ${t.direccion || 'San Salvador de Jujuy'}</span>
+      </div>
+      <span style="background: #10b981; color: white; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: bold; font-size: 0.85rem;">
+        📅 ${t.fecha || 'Sábado 14/11'} • ${t.horario} hs
+      </span>
+    </div>
+  `).join('');
 }

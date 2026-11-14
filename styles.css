@@ -139,3 +139,83 @@ body { background-color: var(--bg); color: var(--text); }
 .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
 .btn-cancelar { padding: 0.5rem 1rem; border: none; background: #e2e8f0; border-radius: 6px; cursor: pointer; }
 .btn-confirmar { padding: 0.5rem 1rem; border: none; background: var(--primary); color: white; border-radius: 6px; font-weight: bold; cursor: pointer; }
+
+/* 1. Evitar desplazamiento horizontal en celulares */
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.select-localidad {
+  max-width: 100%;
+}
+
+/* 2. Banner de urgencias 107 */
+.emergency-banner {
+  background-color: #fef2f2;
+  color: #991b1b;
+  border-bottom: 1px solid #fecaca;
+  text-align: center;
+  padding: 0.5rem 1rem;
+  font-size: 0.82rem;
+}
+
+/* 3. Banner de confirmación en página (reemplaza alert) */
+.success-banner {
+  background: #ecfdf5;
+  border: 2px solid #10b981;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.success-icon { font-size: 1.5rem; }
+.success-body { flex: 1; }
+.success-body h3 { color: #065f46; font-size: 1.05rem; margin-bottom: 0.3rem; }
+.success-body p { font-size: 0.9rem; color: #064e3b; line-height: 1.45; }
+.btn-ver-agenda {
+  margin-top: 0.6rem; background: #059669; color: white; border: none;
+  padding: 0.45rem 0.9rem; border-radius: 6px; font-weight: 600; cursor: pointer;
+}
+.btn-close-banner { background: transparent; border: none; font-size: 1.1rem; color: #065f46; cursor: pointer; }
+
+/* 4. Chips táctiles para Obras Sociales */
+.chips-group { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.4rem; }
+.chip-option { cursor: pointer; user-select: none; }
+.chip-option input { display: none; }
+.chip-option span {
+  display: inline-block; padding: 0.55rem 1rem; border-radius: 99px;
+  border: 1.5px solid #cbd5e1; background: #f8fafc; font-size: 0.9rem; font-weight: 600;
+}
+.chip-option input:checked + span {
+  background: #ccfbf1; border-color: #0f766e; color: #115e59;
+}
+
+/* 5. Validación en rojo y mensajes de feedback */
+.input-error { border: 2px solid #dc2626 !important; background-color: #fef2f2 !important; }
+.feedback-box { padding: 0.85rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.92rem; font-weight: 600; }
+.feedback-success { background: #ecfdf5; border: 1px solid #10b981; color: #065f46; }
+.feedback-error { background: #fef2f2; border: 1px solid #ef4444; color: #991b1b; }
+
+/* 6. Modal centrado en celular */
+.modal-content { width: 100%; max-width: 430px; max-height: 92vh; overflow-y: auto; margin: auto; }
+.modal-summary { background: #f0fdfa; border: 1px solid #99f6e4; padding: 0.75rem; border-radius: 8px; font-size: 0.88rem; margin: 0.75rem 0 1rem 0; }
+.btn-mobile-filters { display: none; }
+
+/* 7. Ajustes exclusivos para pantallas de celular */
+@media (max-width: 768px) {
+  .mobile-filter-bar { display: flex; align-items: flex-end; gap: 0.5rem; }
+  .btn-mobile-filters {
+    display: inline-block; padding: 0.5rem 0.8rem; background: #f1f5f9;
+    border: 1px solid #cbd5e1; border-radius: 8px; font-weight: 600; font-size: 0.85rem; white-space: nowrap;
+  }
+  .filtros-avanzados { display: none; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; }
+  .filtros-avanzados.open { display: block; }
+  .grid-form { grid-template-columns: 1fr; }
+  .full-width { grid-column: span 1; }
+  .pro-turnos { text-align: left; width: 100%; border-top: 1px solid #f1f5f9; padding-top: 0.75rem; }
+  .slots-buttons { justify-content: flex-start; }
+}
