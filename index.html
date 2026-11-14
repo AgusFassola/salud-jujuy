@@ -18,13 +18,13 @@
     <header class="navbar">
       <div class="logo-area">
         <h1>SALUD JUJUY</h1>
-        <span class="badge-ciudad">San Salvador</span>
+        
         <select
           id="selector-localidad"
-          class="select-localidad"
-          title="Expansión provincial"
+          class="badge-select"
+          title="Cambiar localidad"
         >
-          <option value="ssj" selected>San Salvador de Jujuy</option>
+          <option value="ssj" selected>📍San Salvador de Jujuy</option>
           <option value="palpala" disabled>Palpalá (Próximamente)</option>
           <option value="perico" disabled>Perico (Próximamente)</option>
           <option value="tilcara" disabled>
@@ -72,17 +72,7 @@
           />
         </div>
         <div class="mobile-filter-bar">
-          <div class="form-group" style="flex: 1; margin-bottom: 0">
-            <label>Especialidad</label>
-            <select id="filtro-especialidad">
-              <option value="" selected>Todas las especialidades</option>
-              <option value="Kinesiología">Kinesiología</option>
-              <option value="Médico Clínico">Médico Clínico</option>
-              <option value="Traumatología">Traumatología</option>
-              <option value="Dentista">Dentista</option>
-              <option value="Nutrición">Nutrición</option>
-            </select>
-          </div>
+          
           <button
             type="button"
             class="btn-mobile-filters"
@@ -97,6 +87,17 @@
         </div>
 
         <div id="filtros-avanzados" class="filtros-avanzados">
+            <div class="form-group" style="flex: 1; margin-bottom: 0">
+            <label>Especialidad</label>
+            <select id="filtro-especialidad">
+              <option value="" selected>Todas las especialidades</option>
+              <option value="Kinesiología">Kinesiología</option>
+              <option value="Médico Clínico">Médico Clínico</option>
+              <option value="Traumatología">Traumatología</option>
+              <option value="Dentista">Dentista</option>
+              <option value="Nutrición">Nutrición</option>
+            </select>
+          </div>
           <div class="form-group">
             <label>Obra Social / Cobertura</label>
             <select id="filtro-obra">
